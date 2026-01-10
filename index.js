@@ -1,4 +1,11 @@
+
+
+
+
+
 const { Client, GatewayIntentBits } = require('discord.js');
+const db = require("./db");
+
 
 const client = new Client({
   intents: [
@@ -10,8 +17,8 @@ const client = new Client({
 });
 
 const TOKEN = process.env.BOT_TOKEN;
-const TARGET_CHANNEL = process.env.TARGET_CHANNEL;
-const ROLE_ID = process.env.ROLE_ID;
+//const TARGET_CHANNEL = process.env.TARGET_CHANNEL;
+//const ROLE_ID = process.env.ROLE_ID;
 const processing = new Set();
 
 if (!TOKEN) {
@@ -19,24 +26,72 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-if (!TARGET_CHANNEL) {
-  console.error("TARGET_CHANNEL が設定されていません");
-  process.exit(1);
-}
+//if (!TARGET_CHANNEL) {
+//  console.error("TARGET_CHANNEL が設定されていません");
+//  process.exit(1);
+//}
 
-if (!ROLE_ID) {
-  console.error("ROLE_ID が設定されていません");
-  process.exit(1);
-}
+//if (!ROLE_ID) {
+//  console.error("ROLE_ID が設定されていません");
+//  process.exit(1);
+//}
 
 
 client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
+
+const { PermissionsBitField } = require("discord.js");
+
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== "setup") return;
+
+  if (
+    !interaction.member.permissions.has(
+      PermissionsBitField.Flags.Administrator
+    )
+  ) {
+    return interaction.reply({
+      content: "管理者のみ実行できます",
+      ephemeral: true,
+    });
+  }
+
+  const channel = interaction.options.getChannel("channel");
+  const role = interaction.options.getRole("role");
+
+  db.prepare(`
+    INSERT INTO guild_settings (guild_id, channel_id, role_id)
+    VALUES (?, ?, ?)
+    ON CONFLICT(guild_id)
+    DO UPDATE SET
+      channel_id = excluded.channel_id,
+      role_id = excluded.role_id
+  `).run(interaction.guild.id, channel.id, role.id);
+
+  await interaction.reply({
+    content: `設定完了！\n自己紹介チャンネル: ${channel}\n付与ロール: ${role}`,
+    ephemeral: true,
+  });
+});
+
+
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
-  if (msg.channel.id !== TARGET_CHANNEL) return;
+  if (!msg.guild) return;
+
+  const settings = db
+    .prepare(
+      "SELECT channel_id, role_id FROM guild_settings WHERE guild_id = ?"
+    )
+    .get(msg.guild.id);
+
+  // まだ /setup されていないサーバー
+  if (!settings) return;
+
+  if (msg.channel.id !== settings.channel_id) return;
 
   const key = `${msg.guild.id}-${msg.author.id}`;
   if (processing.has(key)) return;
@@ -45,12 +100,9 @@ client.on("messageCreate", async (msg) => {
   try {
     const member = await msg.guild.members.fetch(msg.author.id);
 
-    // ★ ここでチェック（returnしても finally は実行される）
-    if (member.roles.cache.has(ROLE_ID)) {
-      return;
-    }
+    if (member.roles.cache.has(settings.role_id)) return;
 
-    await member.roles.add(ROLE_ID);
+    await member.roles.add(settings.role_id);
     await msg.reply("自己紹介ありがとう！ロールを付与しました 🎉");
 
     console.log(`Role added to ${msg.author.tag}`);
@@ -60,4 +112,5 @@ client.on("messageCreate", async (msg) => {
     setTimeout(() => processing.delete(key), 5000);
   }
 });
+
 client.login(TOKEN);
