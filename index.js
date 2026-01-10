@@ -12,6 +12,7 @@ const client = new Client({
 const TOKEN = process.env.BOT_TOKEN;
 const TARGET_CHANNEL = process.env.TARGET_CHANNEL;
 const ROLE_ID = process.env.ROLE_ID;
+const processing = new Set();
 
 if (!TOKEN) {
   console.error("BOT_TOKEN が設定されていません");
@@ -34,18 +35,29 @@ client.on("ready", () => {
 });
 
 client.on("messageCreate", async (msg) => {
-  if (msg.channel.id === TARGET_CHANNEL && !msg.author.bot) {
-    // 簡単な条件：1文字以上なら付与
-    try {
-      const member = await msg.guild.members.fetch(msg.author.id);
-      if (member.roles.cache.has(ROLE_ID)) return;
-      await member.roles.add(ROLE_ID);
-      await msg.reply("自己紹介ありがとう！ロールを付与しました 🎉");
-      console.log(`Role added to ${msg.author.tag}`);
-    } catch (err) {
-      console.error(err);
+  if (msg.author.bot) return;
+  if (msg.channel.id !== TARGET_CHANNEL) return;
+
+  const key = `${msg.guild.id}-${msg.author.id}`;
+  if (processing.has(key)) return;
+  processing.add(key);
+
+  try {
+    const member = await msg.guild.members.fetch(msg.author.id);
+
+    // ★ ここでチェック（returnしても finally は実行される）
+    if (member.roles.cache.has(ROLE_ID)) {
+      return;
     }
+
+    await member.roles.add(ROLE_ID);
+    await msg.reply("自己紹介ありがとう！ロールを付与しました 🎉");
+
+    console.log(`Role added to ${msg.author.tag}`);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setTimeout(() => processing.delete(key), 5000);
   }
 });
-
 client.login(TOKEN);
