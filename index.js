@@ -10,8 +10,8 @@ const client = new Client({
 });
 
 const TOKEN = process.env.BOT_TOKEN;
-const TARGET_CHANNEL = "1278605020463628423";
-const ROLE_ID = "1459548257704345673";
+const TARGET_CHANNEL = process.env.TARGET_CHANNEL;
+const ROLE_ID = process.env.ROLE_ID;
 
 if (!TOKEN) {
   console.error("BOT_TOKEN が設定されていません");
