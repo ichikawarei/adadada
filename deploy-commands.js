@@ -18,6 +18,16 @@ const commands = [
             .setDescription("付与するロール")
             .setRequired(true)
     )
+    .addStringOption(option =>
+      option
+        .setName("mode")
+        .setDescription("add = 付与 / remove = 剥奪")
+        .addChoices(
+          { name: "付与", value: "add" },
+          { name: "剥奪", value: "remove" }
+        )
+        .setRequired(false)
+    )
     .toJSON()
 ];
 
