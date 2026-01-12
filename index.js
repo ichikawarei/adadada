@@ -153,7 +153,7 @@ if (settings.mode === "add") {
   if (!member.roles.cache.has(settings.role_id)) return;
 
   await member.roles.remove(settings.role_id);
-  await msg.reply("自己紹介ありがとう！ロールを解除しました 👋");
+  await msg.reply("自己紹介ありがとう！ロールを解除しました 🎉");
 
   console.log(`Role removed from ${msg.author.id}`);
 }
